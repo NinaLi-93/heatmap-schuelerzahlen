@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Schülerzahlen Heatmap</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <style>
+    #map { height: 100vh; width: 100%; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script>
+    async function loadFullData() {
+      return new Promise((resolve, reject) => {
+        Papa.parse("Schuelerzahlen_mit_Koordinaten.csv", {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+          complete: function(results) {
+            const parsed = results.data.map(row => ({
+              gemeinde: row.Gemeinde,
+              plz: parseInt(row.PLZ),
+              lat: parseFloat(row.Latitude),
+              lng: parseFloat(row.Longitude),
+              bundesland: row.Bundesland,
+              schueler: parseInt(row.Schueleranzahl)
+            })).filter(row => row.lat && row.lng && !isNaN(row.schueler));
+            resolve(parsed);
+          },
+          error: function(error) {
+            console.error("Fehler beim Laden der CSV:", error);
+            reject(error);
+          }
+        });
+      });
+    }
+
+    function getColor(schueler) {
+      return schueler > 200 ? '#800026' :
+             schueler > 100 ? '#BD0026' :
+             schueler > 50  ? '#E31A1C' :
+             schueler > 20  ? '#FC4E2A' :
+             schueler > 10  ? '#FD8D3C' :
+             schueler > 5   ? '#FEB24C' :
+             schueler > 0   ? '#FED976' : '#FFEDA0';
+    }
+
+    function initMap(data) {
+      const map = L.map('map').setView([47.7, 13.2], 7);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: 'Map data © <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      data.forEach(entry => {
+        const circle = L.circleMarker([entry.lat, entry.lng], {
+          radius: 6,
+          fillColor: getColor(entry.schueler),
+          color: '#333',
+          weight: 1,
+          opacity: 1,
+          fillOpacity: 0.8
+        }).addTo(map);
+        circle.bindPopup(
+          `<b>${entry.gemeinde}</b><br>PLZ: ${entry.plz}<br>Schüler: ${entry.schueler}`
+        );
+      });
+    }
+
+    loadFullData().then(data => {
+      initMap(data);
+    }).catch(err => console.error("Fehler beim Initialisieren der Karte:", err));
+  </script>
+</body>
+</html>
